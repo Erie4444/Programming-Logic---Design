@@ -1,0 +1,152 @@
+from collections import deque
+import random
+from config import *
+
+class Domino:
+    def __init__(self, pips):
+        self.left, self.right = pips
+    
+    def __str__(self):
+        return f"[{self.left}|{self.right}]"
+
+    def canPlace(self, pip):
+        return self.left == pip or self.right == pip
+
+    def flip(self):
+        self.left, self.right = self.right, self.left
+
+class DominoList:
+    def __init__(self, dominoes):
+        self.dominoes = dominoes
+    
+    def __str__(self):
+        return " ".join(str(d) for d in self.dominoes)
+    
+    def addDomino(self, domino):
+        self.dominoes.append(domino)
+    
+    def removeDomino(self, domino):
+        self.dominoes.remove(domino)
+    
+    def removeDominoAtIndex(self, index):
+        return self.dominoes.pop(index)
+    
+    def getPlayableDominoes(self, pip):
+        return [d for d in self.dominoes if d.canPlace(pip)]
+    
+
+class Hand(DominoList):
+    def __init__(self, dominoes):
+        super().__init__(dominoes)
+    
+    def playDomino(self, domino):
+        if domino in self.dominoes:
+            self.removeDomino(domino)
+            return domino
+        
+        else:
+            raise ValueError("Domino not in hand")
+    
+    def drawDomino(self, domino):
+        self.addDomino(domino)
+    
+class Boneyard(DominoList):
+    def __init__(self):
+        dominoes = [Domino((i, j)) for i in range(7) for j in range(i, 7)]
+        super().__init__(dominoes)
+    
+    def shuffle(self):
+        random.shuffle(self.dominoes)
+    
+    def drawDomino(self):
+        if self.dominoes:
+            return self.removeDominoAtIndex(0)
+        
+        else:
+            raise ValueError("Bone yard is empty")
+
+class Board:
+    '''
+    Board is a line of dominoes placed end to end
+    '''
+    def __init__(self):
+        self.dominoes = deque()
+    
+    def __str__(self):
+        return " ".join(str(d) for d in self.dominoes)
+    
+    def placeDomino(self, domino, end):
+        '''
+        end should be "left" or "right" indicating which end of the board to place the domino on
+        '''
+        if not self.dominoes:
+            self.dominoes.append(domino)
+
+        elif end == "left":
+            if domino.canPlace(self.dominoes[0].left):
+                if domino.right == self.dominoes[0].left:
+                    domino.flip()
+
+                self.dominoes.appendleft(domino)
+            else:
+                raise ValueError("Domino cannot be placed on the left")
+            
+        elif end == "right":
+            if domino.canPlace(self.dominoes[-1].right):
+                if domino.left == self.dominoes[-1].right:
+                    domino.flip()
+
+                self.dominoes.append(domino)
+            else:
+                raise ValueError("Domino cannot be placed on the right")
+        else:
+            raise ValueError("End must be 'left' or 'right'")
+
+class Player:
+    def __init__(self, name, hand):
+        self.name = name
+        self.hand = hand
+    
+    def __str__(self):
+        return f"{self.name}: {self.hand}"
+    
+    def playDomino(self, domino):
+        return self.hand.playDomino(domino)
+    
+    def drawDomino(self, domino):
+        self.hand.drawDomino(domino)
+    
+class Game:
+    def __init__(self, players):
+        self.players = [Player(name, Hand([])) for name in players]
+        self.boneyard = Boneyard()
+        self.board = Board()
+        self.currentPlayerIndex = 0
+        self.boneyard.shuffle()
+        self.deal()
+    
+    def deal(self):
+        for i in range(PLAYER_HAND_LIMIT):
+            for player in self.players:
+                player.drawDomino(self.boneyard.drawDomino())
+    
+    def getCurrentPlayer(self):
+        return self.players[self.currentPlayerIndex]
+    
+    def nextTurn(self):
+        self.currentPlayerIndex = (self.currentPlayerIndex + 1) % len(self.players)
+    
+    def status(self):
+        print("Board:", self.board)
+        for player in self.players:
+            print(player)
+        print("Boneyard:", len(self.boneyard.dominoes), "dominoes left")
+    
+    def dummyGame(self):
+        # This is just a dummy game to test the classes
+        self.getCurrentPlayer().playDomino(self.getCurrentPlayer().hand.dominoes[0])
+        self.board.placeDomino(self.getCurrentPlayer().hand.dominoes[0], "right")
+        self.nextTurn()
+
+testGame = Game(["Alice", "Bob"])
+testGame.status()
