@@ -14,6 +14,9 @@ class Domino:
 
     def flip(self):
         self.left, self.right = self.right, self.left
+    
+    def tuple(self):
+        return (self.left, self.right)
 
 class DominoList:
     def __init__(self, dominoes):
@@ -33,6 +36,9 @@ class DominoList:
     
     def getPlayableDominoes(self, pip):
         return [d for d in self.dominoes if d.canPlace(pip)]
+
+    def getList(self):
+        return self.dominoes
     
 
 class Hand(DominoList):
@@ -81,26 +87,40 @@ class Board:
         '''
         if not self.dominoes:
             self.dominoes.append(domino)
+            return True
 
         elif end == "left":
             if domino.canPlace(self.dominoes[0].left):
                 if domino.right == self.dominoes[0].left:
                     domino.flip()
-
                 self.dominoes.appendleft(domino)
+                return True
             else:
-                raise ValueError("Domino cannot be placed on the left")
+                return False
             
         elif end == "right":
             if domino.canPlace(self.dominoes[-1].right):
                 if domino.left == self.dominoes[-1].right:
                     domino.flip()
-
                 self.dominoes.append(domino)
+                return True
             else:
-                raise ValueError("Domino cannot be placed on the right")
+                return False
         else:
             raise ValueError("End must be 'left' or 'right'")
+    
+    def getPlayableEnds(self,domino):
+        playable_ends = []
+        if self.dominoes:
+            if domino.canPlace(self.dominoes[0].left):
+                playable_ends.append("left")
+            if domino.canPlace(self.dominoes[-1].right):
+                playable_ends.append("right")
+        else:
+            playable_ends = ["left", "right"]
+        
+        return playable_ends
+    
 
 class Player:
     def __init__(self, name, hand):
@@ -147,6 +167,3 @@ class Game:
         self.getCurrentPlayer().playDomino(self.getCurrentPlayer().hand.dominoes[0])
         self.board.placeDomino(self.getCurrentPlayer().hand.dominoes[0], "right")
         self.nextTurn()
-
-testGame = Game(["Alice", "Bob"])
-testGame.status()
