@@ -4,19 +4,27 @@ from config import *
 
 class Domino:
     def __init__(self, pips):
-        self.left, self.right = pips
+        self.pips = (Pips(pips[0]),Pips(pips[1]))
     
     def __str__(self):
         return f"[{self.left}|{self.right}]"
 
     def canPlace(self, pip):
-        return self.left == pip or self.right == pip
+        return self.left.pips == pip or self.right.pips == pip
 
     def flip(self):
         self.left, self.right = self.right, self.left
     
     def tuple(self):
         return (self.left, self.right)
+
+class Pips:
+    def __init__(self,pips):
+        self.pips = pips
+        self.isEnd = True
+    
+    def __str__(self):
+        return str(self.pips)
 
 class DominoList:
     def __init__(self, dominoes):
@@ -94,6 +102,8 @@ class Board:
                 if domino.left == self.dominoes[0].left:
                     print("flipped")
                     domino.flip()
+                self.dominoes[0].left.isEnd = False
+                domino.right.isEnd = False
                 self.dominoes.appendleft(domino)
                 return True
             else:
@@ -105,6 +115,8 @@ class Board:
                 if domino.right == self.dominoes[-1].right:
                     print("flipped")
                     domino.flip()
+                self.dominoes[-1].right.isEnd = False
+                domino.left.isEnd = False
                 self.dominoes.append(domino)
                 return True
             else:
@@ -139,12 +151,42 @@ class Player:
     def drawDomino(self, domino):
         self.hand.drawDomino(domino)
     
+class DisplayBoard:
+    def __init__(self):
+        self.dimensions = (1,2) ##row, column
+        self.board = [['','']]
+        ##coordinates for the ends of the sequence (x,y) relative to the left pip of the starting domino
+        self.leftCoord = (0,0)
+        self.rightCoord = (1,0)
+    
+    def expandUp(self):
+        self.board.insert(0,['' for _ in range(self.dimensions[1])])
+    
+    def expandDown(self):
+        self.board.append(['' for _ in range(self.dimensions[1])])
+    
+    def expandLeft(self):
+        for row in range(self.dimensions[0]):
+            self.board[row].insert(0,'')
+    
+    def expandRight(self):
+        for row in range(self,self.dimensions[0]):
+            self.board[row].append('')
+    
+    def addDomino(domino,)
+    
+
+
 class Game:
-    def __init__(self, players):
-        self.players = [Player(name, Hand([])) for name in players]
+    def __init__(self):
+        self.players = []
         self.boneyard = Boneyard()
         self.board = Board()
+        
         self.currentPlayerIndex = 0
+    
+    def startGame(self,players):
+        self.players = [Player(name, Hand([])) for name in players]
         self.boneyard.shuffle()
         self.deal()
     

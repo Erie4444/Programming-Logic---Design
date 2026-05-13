@@ -8,7 +8,6 @@ from util import *
 
 class DominoesServer:
     def __init__(self):
-        self.game = Game()
         self.socket = SocketServer()
         self.players = []
         print("Server: Server initialized.")
@@ -62,7 +61,7 @@ class DominoesServer:
                     # Here you would handle the message and update game state accordingly
     
     def initGame(self):
-        self.game.startGame(self.players)
+        ##start game here
         for playerIndex in range(len(self.players)):
             hand = [(domino.tuple()) for domino in self.game.players[playerIndex].hand.dominoes]
             self.socket.sendMessageToPlayer(playerIndex,"hand",hand)
