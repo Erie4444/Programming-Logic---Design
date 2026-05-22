@@ -1,4 +1,5 @@
 import math
+from config import *
 class Pips:
     def __init__(self,pips,x=0,y=0):
         self.x = x
@@ -8,6 +9,9 @@ class Pips:
     
     def __str__(self):
         return str(self.pips)
+
+    def getCoord(self):
+        return (self.x,self.y)
 
 class Domino:
     def __init__(self,pipLeft,pipRight):
@@ -28,6 +32,16 @@ class Domino:
         self.right.y = y
         self.left.x = x+xOffset
         self.left.y = y+yOffset
+    
+    def place(self,lx,ly,rx,ry):
+        self.left.x = lx
+        self.left.y = ly
+        self.right.x = rx
+        self.right.y = ry
+    
+    def getDomino(self):
+        return [self.left.pips,self.right.pips]
+    
 
     def findSecondPipOffset(self,sideyouHave):
         if sideyouHave == "left":
@@ -39,50 +53,132 @@ class DominoBoard:
     ##all x,y parameters are relative to the 1st domino (not indexes for self.board because it can expand backwards)
     def __init__(self):
         self.board = AdaptiveBoard()
-        self.rightCoord = (1,0)
-        self.leftCoord = (0,0)
-        self.board.addItem(0,0,Pips(4))
-        self.board.addItem(1,0,Pips(3))
-        self.board.addItem(2,1,Pips(1))
-        self.board.addItem(3,0,Pips(2))
-        self.board.addItem(2,-1,Pips(5))
-        self.board.addItemRel(-1,0,Pips(6))
-        self.board.printBoard()
+        self.right = False
+        self.left = False
     
     def placeDomino(self,domino):
-        self.board.addItem(domino.left.x,domino.left.y,domino.left)
-        self.board.addItem(domino.right.x,domino.right.y,domino.right)
+        self.board.addItemRel(domino.left.x,domino.left.y,domino.left)
+        self.board.addItemRel(domino.right.x,domino.right.y,domino.right)
+
+    """
+    Have a valid placement function for options for player placement in UI
+
+    Once they place the domino, check which pip is directly ortho to the end pip
+        if the pips values are equal, then place domino (they shouldn't be able to place it in a wrong placement in the first place)
+                    
+    """
     
-    def calculateValidPositions(self):
-        validPositions = {"left":[],"right":[]}
-        orthogonalOffsets = [(0,1),(1,0),(0,-1),(-1,0)]
-        for xOffset,yOffset in orthogonalOffsets:
-            if self.board.getItemRel(self.leftCoord[0]+xOffset,self.leftCoord[1]+yOffset) == '':
-                for xOffset2,yOffset2 in orthogonalOffsets:
-                    if self.board.getItemRel(self.leftCoord[0]+xOffset+xOffset2,self.leftCoord[1]+yOffset+yOffset2) == '':
-                        validPositions["left"].append((self.leftCoord[0]+xOffset,self.leftCoord[1]+yOffset))
-                        break
-    
-        for xOffset,yOffset in orthogonalOffsets:
-            if self.board.getItemRel(self.rightCoord[0]+xOffset,self.rightCoord[1]+yOffset) == '':
-                for xOffset2,yOffset2 in orthogonalOffsets:
-                    if self.board.getItemRel(self.rightCoord[0]+xOffset+xOffset2,self.rightCoord[1]+yOffset+yOffset2) == '':
-                        validPositions["right"].append((self.rightCoord[0]+xOffset,self.rightCoord[1]+yOffset))
-                        break
-        ##check if current pos has pips, go through ortho squares, and if no pips, append
+    def canPlacePip(self,domino):
+        ##assumes its in a valid placement
+        boardPip = self.findSidePlaced(domino)
+        dominoPip = domino.left if domino.left.getCoord() in self.getOrthogonalCoords(boardPip.x,boardPip.y) else domino.right if domino.right.getCoord() in self.getOrthogonalCoords(boardPip.x,boardPip.y) else None
+        if dominoPip:
+            if boardPip.pips == dominoPip.pips:
+                return True
+        return False
+
+
+    def placeDominoWithChecks(self, domino):
+        if not (self.right or self.left):
+            self.right = domino.right
+            self.left = domino.left
+            self.placeDomino(domino)
+        else:
+            if self.canPlaceDominoPositionally(domino):
+                if self.canPlacePip(domino):
+                    if self.findSidePlaced(domino) == self.left:
+                        if domino.left.pips == self.left.pips:
+                            self.left = domino.right
+                        elif domino.right.pips == self.left.pips:
+                            self.left = domino.left
+
+                    if self.findSidePlaced(domino) == self.right:
+                        if domino.left.pips == self.right.pips:
+                            self.right = domino.right
+                        elif domino.right.pips == self.right.pips:
+                            self.right = domino.left
+                    self.placeDomino(domino)
+
+                else:
+                    print("pip failed")
+            else:
+                print("pos failed")
+
+
+    def canPlaceDominoPositionally(self,domino): ##checks if position of domino is valid
+        globalValidPositions = self.calculateGlobalValidPositions()[self.left]+self.calculateGlobalValidPositions()[self.right]
+        for orthoPos, orthoPos2 in globalValidPositions:
+            if orthoPos in [domino.left.getCoord(),domino.right.getCoord()] and orthoPos2 in [domino.left.getCoord(),domino.right.getCoord()]:
+                return True
+        print(domino.left.getCoord(),domino.right.getCoord())
+        print(globalValidPositions)
+        return False
+
+    def findSidePlaced(self,domino):
+        for side, poses in self.calculateGlobalValidPositions().items():
+            for orthoPos, orthoPos2 in poses:
+                if orthoPos in [domino.left.getCoord(),domino.right.getCoord()] and orthoPos2 in [domino.left.getCoord(),domino.right.getCoord()]:
+                    return side
+        return False
+
+    def calculateGlobalValidPositions(self):
+        leftPoses = self.calculateValidPositions(self.left.x,self.left.y)
+        rightPoses = self.calculateValidPositions(self.right.x,self.right.y)
+        return {self.left : leftPoses, self.right : rightPoses}
+    ##make it unable to place a domino on both ends of the board at the same time
+    def calculateValidPositions(self,x,y):
+        """Calculates valid positions for dominos\nreturns in position pairs"""
+        ##[(x,y),(x,y)] first pos is directly ortho
+        validPositions = []
+        for orthoCell in self.checkOrthogonalCells(x,y,BOARD_EMPTY):
+            for orthoCell2 in self.checkOrthogonalCells(orthoCell[0],orthoCell[1],BOARD_EMPTY): ##second degree ortho
+                validPositions.append([orthoCell,orthoCell2])
         return validPositions
 
-    def getOrthogonalPips(self,x,y):
-        """Gets the pips in orthogonal tiles from x,y"""
+    def checkOrthogonalCells(self,x,y,itemToCheck):
+        validCells = []
+        for X,Y in self.getOrthogonalCoords(x,y):
+            if self.board.getItemRel(X,Y) == itemToCheck:
+                validCells.append((X,Y))
+        return validCells
+
+    def getOrthogonalCoords(self,x,y):
+        coords = []
         orthogonalOffsets = [(0,1),(1,0),(0,-1),(-1,0)]
-        output = {}
-        for xOffset, yOffset in orthogonalOffsets:
-            if self.board.inBoardRel(x+xOffset,y+yOffset):
-                if self.board.getItemRel(x+xOffset,y+yOffset) != '':
-                    ##idk if i should return the offset or relative coord as key then pip as value
-                    output[(xOffset,yOffset)] = self.board.getItemRel(x+xOffset,y+yOffset).pips
-        return output
-    
+        for xOffset,yOffset in orthogonalOffsets:
+            coords.append((x+xOffset,y+yOffset))
+        return coords
+
+    def debug(self):
+        running = True
+        while running:
+            print("=====DEBUG=====\n - d place domino\n - p print board\n - q quit")
+            user = input(">> ")
+            if user == "d":
+                print("input pip values (l,r)")
+                pipL, pipR = input(">> ").split(",")
+                debugDomino = Domino(int(pipL),int(pipR))
+                print("input angle of domino")
+                angle = int(input(">> "))
+                debugDomino.angle = angle
+                print("place left or right")
+                side = input(">> ")
+                print("input pos (x,y)")
+                x,y = input(">> ").split(",")
+                if side == "left":
+                    debugDomino.placeLeft(int(x),int(y))
+                elif side == "right":
+                    debugDomino.placeRight(int(x),int(y))
+                self.placeDominoWithChecks(debugDomino)
+                print("placed!")
+            
+            elif user == "p":
+                self.board.printBoard()
+            
+            elif user == "q":
+                running = False
+                
+
 
 class AdaptiveBoard():
     """All x,y parameters are matrix coordinates\n
@@ -95,25 +191,25 @@ class AdaptiveBoard():
         self.origin = [0,0]
         self.rows = startDimensions[0]
         self.cols = startDimensions[1]
-        self.board = [['' for _ in range(self.cols)] for _ in range(self.rows)]
+        self.board = [[BOARD_EMPTY for _ in range(self.cols)] for _ in range(self.rows)]
     
     def expandDown(self):
-        self.board.append(['' for _ in range(self.cols)])
+        self.board.append([BOARD_EMPTY for _ in range(self.cols)])
         self.rows+=1
     
     def expandUp(self):
-        self.board.insert(0,['' for _ in range(self.cols)])
+        self.board.insert(0,[BOARD_EMPTY for _ in range(self.cols)])
         self.origin[1]+=1
         self.rows+=1
     
     def expandRight(self):
         for row in range(self.rows):
-            self.board[row].append('')
+            self.board[row].append(BOARD_EMPTY)
         self.cols+=1
     
     def expandLeft(self):
         for row in range(self.rows):
-            self.board[row].insert(0,'')
+            self.board[row].insert(0,BOARD_EMPTY)
         self.origin[0]+=1
         self.cols+=1
     
@@ -163,11 +259,19 @@ class AdaptiveBoard():
         return (x-self.origin[0],y-self.origin[1])
 
     def printBoard(self):
-        for row in self.board:
+        for i in range(self.rows):
             printRow = []
-            for item in row:
+            for item in self.board[i]:
                 printRow.append(str(item))
-            print(printRow)
+            yAxis = (' '*(4-len(str(i-self.origin[1])))) + str(i-self.origin[1]) + " |"
+            print(yAxis,printRow)
+        print("======="+"="*5*self.cols)
+        xValues = [str(i-self.origin[0]) for i in range(self.cols)]
+        xAxis = " "*7
+        for xValue in xValues:
+            xAxis+=' '*(3-len(xValue)) + xValue + '  '
+        print(xAxis)
+
                 
     def inBoard(self,x,y):
         if 0 <= x < self.cols and 0 <= y < self.rows:
@@ -181,7 +285,7 @@ class AdaptiveBoard():
         return False
     
     def clearBoard(self):
-        self.board = [['' for _ in range(self.cols)] for _ in range(self.rows)]
+        self.board = [[BOARD_EMPTY for _ in range(self.cols)] for _ in range(self.rows)]
 
     def checkOrigin(self):
         self.clearBoard()
@@ -216,4 +320,4 @@ class AdaptiveBoard():
                 
 
 test = DominoBoard()
-print(test.calculateValidPositions())
+test.debug()

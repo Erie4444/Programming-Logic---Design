@@ -30,3 +30,10 @@ def absCoordToCellCoord(position):
 
 def cellCoordToAbsCoord(position):
     return (position[0]*TILE_DIMENSIONS[0]+TILE_DIMENSIONS[0]/2,position[1]*TILE_DIMENSIONS[1]+TILE_DIMENSIONS[1]/2)
+
+def findDuplicates(iter1,iter2):
+    dupes = []
+    for item in iter1:
+        if item in iter2:
+            dupes.append(item)
+    return dupes
