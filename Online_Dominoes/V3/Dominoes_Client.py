@@ -10,6 +10,7 @@ class DominoesClient:
         self.socket = SocketClient()
         self.name = input("Enter your name: ")
         self.status = "joining"
+        self.playerNum = None
         print("Client: Connecting to server, please wait...")
         self.socket.connect()
         print("Client: Connected to server.")
@@ -36,26 +37,34 @@ class DominoesClient:
         print("Client: You are a spectator")
         input("Press Enter to spectate the game...")
         self.socket.sendMessage("join", {"type": "spectator"})
+    
+    def sendGameMessage(self,type,message):
+        self.socket.sendMessage(type,{"num":self.playerNum} | message)
+
 
     def listenToServer(self):
         while self.socket.state == "connected":
             message = self.socket.receiveMessage()
             if message:
-                print(f"Client: Received from server: {message}")
-            if message:
                 if message["type"] == "connectedPlayer":
                     self.status = "player"
+
                 elif message["type"] == "connectedSpectator":
                     self.status = "spectator"
+
                 elif message["type"] == "confirm":
                     print(f"Client: Server confirmation, you are player {message['content']['playerCount']}")
+                    if not self.playerNum:
+                        self.playerNum = int(message['content']['playerCount'])
+
                 elif message["type"] == "shutdown":
                     print("Client: Server is shutting down. Disconnecting...")
                     self.status = "disconnected"
                     self.socket.close()
 
                 elif message["type"] == "hand":
-                    self.player = Player(self.name, Hand([Domino(pips) for pips in message["content"]]))
+                    ##get the hand yes
+                    pass
     
     def update(self):
         if self.status == "player":

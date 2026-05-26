@@ -58,7 +58,6 @@ class DominoesServer:
                         elif message["content"]["type"] == "spectator":
                             print(f"Server: Spectator joined")
                             self.socket.sendMessage(client, "confirm", "")
-                    # Here you would handle the message and update game state accordingly
     
     def initGame(self):
         ##start game here

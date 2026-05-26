@@ -1,5 +1,6 @@
 import math
 from config import *
+import random
 class Pips:
     def __init__(self,pips,x=0,y=0):
         self.x = x
@@ -178,9 +179,7 @@ class DominoBoard:
             elif user == "q":
                 running = False
                 
-
-
-class AdaptiveBoard():
+class AdaptiveBoard:
     """All x,y parameters are matrix coordinates\n
     x - column index\n
     y - row index\n
@@ -317,7 +316,54 @@ class AdaptiveBoard():
                     self.printBoard()
                 else:
                     self.checkOrigin()
-                
 
-test = DominoBoard()
-test.debug()
+class DominoList:
+    def __init__(self, dominoes):
+        self.dominoes = dominoes
+    
+    def __str__(self):
+        return " ".join(str(d) for d in self.dominoes)
+    
+    def addDomino(self, domino):
+        self.dominoes.append(domino)
+    
+    def removeDomino(self, domino):
+        self.dominoes.remove(domino)
+    
+    def removeDominoAtIndex(self, index):
+        return self.dominoes.pop(index)
+
+    def getList(self):
+        return self.dominoes
+
+class Hand(DominoList):
+    def __init__(self, dominoes):
+        super().__init__(dominoes)
+    
+    def playDomino(self, domino): ##before the confirmation that it is playable
+        if domino in self.dominoes:
+            return domino
+        else:
+            raise ValueError("Domino not in hand")
+    
+    def drawDomino(self, domino):
+        self.addDomino(domino)
+    
+class Boneyard(DominoList):
+    def __init__(self):
+        dominoes = [Domino((i, j)) for i in range(7) for j in range(i, 7)]
+        super().__init__(dominoes)
+    
+    def shuffle(self):
+        random.shuffle(self.dominoes)
+    
+    def drawDomino(self):
+        if self.dominoes:
+            return self.removeDominoAtIndex(0)
+        else:
+            raise ValueError("Bone yard is empty")
+
+class ServerLogic:
+    def __init__(self):
+        self.board = DominoBoard()
+        self.boneyard = Boneyard()
