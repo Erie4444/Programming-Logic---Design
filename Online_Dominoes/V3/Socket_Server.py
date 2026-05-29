@@ -43,21 +43,27 @@ class SocketServer:
         packet = self.receivePacket(client)
         return jsonLoad(packet)
     
-    def broadcastPacket(self, packet, clientType=None):
+    def broadcastPacket(self, packet, clientType=None, amount = None):
         if clientType:
             clients = self.clients[clientType]
         else:
             clients = self.getPlayers() + self.getSpectators()
         
-        for client in clients:
-            self.sendPacket(client, packet)
+        if amount == None:
+            amount = len(clients)
 
-    def broadcastMessage(self, type, content, clientType=None):
+        for client in clients:
+            if amount <= 0:
+                break
+            self.sendPacket(client, packet)
+            amount-=1
+
+    def broadcastMessage(self, type, content, clientType=None, amount = None):
         packet = {
             "type": type,
             "content": content
         }
-        self.broadcastPacket(jsonDump(packet), clientType)
+        self.broadcastPacket(jsonDump(packet), clientType,amount)
     
     def sendMessage(self, client, type, content):
         packet = {

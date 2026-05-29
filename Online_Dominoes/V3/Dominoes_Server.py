@@ -9,7 +9,10 @@ from util import *
 class DominoesServer:
     def __init__(self):
         self.socket = SocketServer()
+        self.logic = ServerLogic()
         self.players = []
+        self.spectatorCount = 0
+        self.waitingForResponse = False
         print("Server: Server initialized.")
         print("Server: Waiting for players to join...")
         self.listenThreads = []
@@ -57,14 +60,48 @@ class DominoesServer:
                                 self.socket.sendMessage(client, "decline", "")
                         elif message["content"]["type"] == "spectator":
                             print(f"Server: Spectator joined")
+                            self.spectatorCount += 1
                             self.socket.sendMessage(client, "confirm", "")
+                    
+                    if message["type"] == "game":
+                        if message["content"]["num"] == self.logic.getCurrentPlayer():
+                            if message["content"]["action"] == "place":
+                                recvDomino = Domino(0,0)
+                                recvDomino.reconstruct(message["content"]["content"])
+                                placed = self.logic.placeDomino(recvDomino)
+                                if placed:
+                                    self.socket.sendMessage(client,"placementSuccess","")
+                                    self.logic.nextPlayer()
+                                else:
+                                    self.socket.sendMessage(client,"placementFailure","")
+                                self.logic.board.board.printBoard()
+                                print(self.logic.boneyard)
+                                print(f"spectators: {self.spectatorCount}")
+                            
+                            elif message["content"]["action"] == "requestBoardPips":
+                                if self.logic.board.left and self.logic.board.right:
+                                    self.socket.sendMessage(client,"pips",{"left":self.logic.board.left.pips,"right":self.logic.board.right.pips})
+                                else:
+                                    self.socket.sendMessage(client,"noPips","")
+                            
+                            elif message["content"]["action"] == "draw":
+                                drawnDomino = self.logic.drawDomino()
+                                if drawnDomino:
+                                    self.socket.sendMessage(client,"draw",drawnDomino.deconstruct())
+                                else:
+                                    self.socket.sendMessage(client,"drawFailure","")
+                        else:
+                            self.socket.sendMessage(client,"notYourTurn","")
+                        
+
+                        self.socket.broadcastMessage("gameInfo",{"board":self.logic.board.board.deconstruct()},"SPECTATORS",self.spectatorCount)
     
     def initGame(self):
-        ##start game here
-        for playerIndex in range(len(self.players)):
-            hand = [(domino.tuple()) for domino in self.game.players[playerIndex].hand.dominoes]
-            self.socket.sendMessageToPlayer(playerIndex,"hand",hand)
-    
+        self.logic.initGame()
+        for i, hand in enumerate(self.logic.getHands()):
+            deconstructedHand = [domino.deconstruct() for domino in hand.getList()]
+            self.socket.sendMessageToPlayer(i,"hand",deconstructedHand)
+
     def status(self):
         self.socket.status()
 

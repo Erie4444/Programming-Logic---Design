@@ -20,6 +20,9 @@ class Domino:
         self.right = Pips(pipRight)
         self.angle = 0 ##0 is horizontal, 90 is vertical, etc.
     
+    def __str__(self):
+        return f"[{self.left}|{self.right}]"
+    
     def placeLeft(self,x,y): ##gets coordinates to place a domino assuming left side is the connecting side
         xOffset, yOffset = self.findSecondPipOffset("left")
         self.left.x = x
@@ -42,13 +45,24 @@ class Domino:
     
     def getDomino(self):
         return [self.left.pips,self.right.pips]
-    
 
+    def deconstruct(self):
+        return {"leftPip":self.left.pips,"leftX":self.left.x,"leftY":self.left.y,"rightPip":self.right.pips,"rightX":self.right.x,"rightY":self.right.y}
+
+    def reconstruct(self,domino):
+        self.left = Pips(domino["leftPip"])
+        self.right = Pips(domino["rightPip"])
+        self.left.x, self.left.y = domino["leftX"],domino["leftY"]
+        self.right.x, self.right.y = domino["rightX"],domino["rightY"]
+    
     def findSecondPipOffset(self,sideyouHave):
         if sideyouHave == "left":
             return round(math.cos(math.radians(self.angle))), -1*round(math.sin(math.radians(self.angle))) ##y is -1x because up in matricies have decreasing indexes
         elif sideyouHave == "right":
             return -1*round(math.cos(math.radians(self.angle))), round(math.sin(math.radians(self.angle))) ##-1x of outputs in "left" if because position is the opposite of left
+
+    def printVars(self):
+        print(self.left.pips,self.left.x,self.left.y,self.right.pips,self.right.x,self.right.y)
 
 class DominoBoard:
     ##all x,y parameters are relative to the 1st domino (not indexes for self.board because it can expand backwards)
@@ -84,6 +98,7 @@ class DominoBoard:
             self.right = domino.right
             self.left = domino.left
             self.placeDomino(domino)
+            return True
         else:
             if self.canPlaceDominoPositionally(domino):
                 if self.canPlacePip(domino):
@@ -99,11 +114,13 @@ class DominoBoard:
                         elif domino.right.pips == self.right.pips:
                             self.right = domino.left
                     self.placeDomino(domino)
+                    return True
 
                 else:
                     print("pip failed")
             else:
                 print("pos failed")
+        return False
 
 
     def canPlaceDominoPositionally(self,domino): ##checks if position of domino is valid
@@ -291,6 +308,10 @@ class AdaptiveBoard:
         self.board[self.origin[1]][self.origin[0]] = 'x'
         self.printBoard()
     
+    def deconstruct(self):
+        deconstructed = [[BOARD_EMPTY if self.board[j][i] == BOARD_EMPTY else self.board[j][i].pips for i in range(self.cols)] for j in range(self.rows)]
+        return deconstructed
+    
     def testBoard(self):
         debugInput = input("Testing the adaptive board, type \"quit\" to exit, press Enter to continue...")
         while True:
@@ -344,14 +365,20 @@ class Hand(DominoList):
         if domino in self.dominoes:
             return domino
         else:
-            raise ValueError("Domino not in hand")
+            return False
     
     def drawDomino(self, domino):
         self.addDomino(domino)
     
+    def hasDominoWithPip(self,pips):
+        for domino in self.dominoes:
+            if pips in domino.getDomino():
+                return True
+        return False
+    
 class Boneyard(DominoList):
     def __init__(self):
-        dominoes = [Domino((i, j)) for i in range(7) for j in range(i, 7)]
+        dominoes = [Domino(i, j) for i in range(7) for j in range(i, 7)]
         super().__init__(dominoes)
     
     def shuffle(self):
@@ -361,9 +388,50 @@ class Boneyard(DominoList):
         if self.dominoes:
             return self.removeDominoAtIndex(0)
         else:
-            raise ValueError("Bone yard is empty")
+            print("boneyard empty")
+            return False
 
 class ServerLogic:
     def __init__(self):
         self.board = DominoBoard()
         self.boneyard = Boneyard()
+        self.currentPlayer = 1
+    
+    def getCurrentPlayer(self):
+        return self.currentPlayer
+    
+    def nextPlayer(self):
+        self.currentPlayer+=1
+        if self.currentPlayer > NUM_PLAYERS:
+            self.currentPlayer = 1
+
+    def initGame(self):
+        self.boneyard.shuffle()
+        self.dealHands()
+
+    def dealHands(self):
+        self.hands = [Hand([]) for i in range(NUM_PLAYERS)]
+        for i in range(PLAYER_HAND_LIMIT):
+            for j in range(NUM_PLAYERS):
+                self.hands[j].addDomino(self.boneyard.drawDomino())
+    
+    def getHands(self):
+        try:
+            return self.hands
+        except:
+            print("dealHands method not run!")
+    
+    def placeDomino(self,domino):
+        return self.board.placeDominoWithChecks(domino)
+
+    def drawDomino(self):
+        if len(self.boneyard.getList()) > 0:
+            return self.boneyard.drawDomino()
+    
+class ClientLogic:
+    def __init__(self,hand):
+        self.hand = hand
+    
+    def playDomino(self,domino):
+        return self.hand.playDomino(domino)
+
