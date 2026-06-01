@@ -435,3 +435,11 @@ class ClientLogic:
     def playDomino(self,domino):
         return self.hand.playDomino(domino)
 
+    def getScore(self):
+        score = 0
+        if len(self.hand.getList()) == 0:
+            return -1
+        for domino in self.hand.getList():
+            score+=domino.left.pips
+            score+=domino.right.pips
+        return score

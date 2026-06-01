@@ -9,25 +9,30 @@ class SocketServer:
         self.state = "running"
         self.serverSocket.bind((HOST, PORT))
         self.serverSocket.listen(CAPACITY)
-        print(f"Socket: Server started on {HOST}:{PORT}, waiting for {NUM_PLAYERS} players to connect...")
+        # print(f"Socket: Server started on {HOST}:{PORT}, waiting for {NUM_PLAYERS} players to connect...")
     
     def acceptClients(self):
-        self.clients = {"PLAYERS":[], "SPECTATORS":[]}
-        for i in range(CAPACITY):
-            clientSocket, addr = self.serverSocket.accept()
-            if len(self.clients["PLAYERS"]) < NUM_PLAYERS: ##if theres still room for players
-                self.clients["PLAYERS"].append(clientSocket)
-                self.sendMessage(clientSocket, "connectedPlayer", {"message": f"Welcome Player {len(self.clients['PLAYERS'])}!"})
-                print(f"Socket: Player {i+1} connected from {addr}")
-            else:
-                self.clients["SPECTATORS"].append(clientSocket)
-                self.sendMessage(clientSocket, "connectedSpectator", {"message": "You are now a spectator."})
-                print(f"Socket: Spectator connected from {addr}")
+        try:
+            self.clients = {"PLAYERS":[], "SPECTATORS":[]}
+            while self.state == "running":
+                clientSocket, addr = self.serverSocket.accept()
+                if len(self.clients["PLAYERS"])+len(self.clients["SPECTATORS"]) >= CAPACITY:
+                    self.sendMessage(clientSocket,"denyConnection","")
+                elif len(self.clients["PLAYERS"]) < NUM_PLAYERS: ##if theres still room for players
+                    self.clients["PLAYERS"].append(clientSocket)
+                    self.sendMessage(clientSocket, "connectedPlayer", {"message": f"Welcome Player {len(self.clients['PLAYERS'])}!"})
+                    # print(f"Socket: Player connected from {addr}")
+                else:
+                    self.clients["SPECTATORS"].append(clientSocket)
+                    self.sendMessage(clientSocket, "connectedSpectator", {"message": "You are now a spectator."})
+                    # print(f"Socket: Spectator connected from {addr}")
+        except Exception as e:
+            pass
 
     def sendPacket(self,client, packet):
         try:
             client.sendall(packet.encode())
-            print(f"Socket: Sent to {client.getpeername()}: {packet}")
+            # print(f"Socket: Sent to {client.getpeername()}: {packet}")
         except Exception as e:
             print(f"Socket: Error sending to {client.getpeername()}: {e}")
     
@@ -51,7 +56,6 @@ class SocketServer:
         
         if amount == None:
             amount = len(clients)
-
         for client in clients:
             if amount <= 0:
                 break
@@ -94,8 +98,14 @@ class SocketServer:
 
     def getSpectators(self):
         return self.clients["SPECTATORS"]
+
+    def clearServer(self):
+        for client in self.clients["PLAYERS"] + self.clients["SPECTATORS"]:
+            self.sendMessage(client,"close","")
+        self.clients["PLAYERS"] = []
+        self.clients["SPECTATORS"] = []
     
     def close(self):
-        self.serverSocket.close()
         self.state = "stopped"
+        self.serverSocket.close()
         print("Socket: Server closed.")

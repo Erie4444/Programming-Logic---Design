@@ -9,12 +9,11 @@ from util import *
 class DominoesServer:
     def __init__(self):
         self.socket = SocketServer()
-        self.logic = ServerLogic()
         self.players = []
+        self.state = "waitingForPlayers"
         self.spectatorCount = 0
         self.waitingForResponse = False
-        print("Server: Server initialized.")
-        print("Server: Waiting for players to join...")
+        print("Server initialized.")
         self.listenThreads = []
         self.listenThread = Thread(target=self.listenToClients, daemon=True)
         self.acceptThread = Thread(target=self.socket.acceptClients, daemon=True)
@@ -23,16 +22,27 @@ class DominoesServer:
         self.gameLoop()
     
     def gameLoop(self):
-        self.waitForPlayers()
-        self.initGame()
-        input("Press Enter to end the game...")
-        self.shutdown()
+        while self.state != "close":
+            if self.state == "waitingForPlayers":
+                self.waitForPlayers()
+            elif self.state == "initGame":
+                self.initGame()
+            elif self.state == "game":
+                if len(self.playerHands) == len(self.socket.getClients()["PLAYERS"]):
+                    self.state = "endgame"
+            elif self.state == "endgame":
+                self.socket.broadcastMessage("gameResult",self.playerHands)
+                self.state = "end"
+            elif self.state == "end":
+                input("Press Enter to close the server...")
+                self.shutdown()
+            time.sleep(0.1)
 
     def waitForPlayers(self):
-        waitUntil(lambda: len(self.socket.getClients()["PLAYERS"]) >= NUM_PLAYERS)
-        print("Server: All players have connected. Waiting for players to join the game...")
+        print("Waiting for players...")
         waitUntil(lambda: len(self.players) >= NUM_PLAYERS)
-        print("Server: Starting the game!")
+        print("Starting Game")
+        self.state = "initGame"
     
     def listenToClients(self):
         while self.socket.state == "running":
@@ -48,13 +58,13 @@ class DominoesServer:
     def parseClientMessages(self, client):
         while self.socket.state == "running":
             message = self.socket.receiveMessage(client)
-            print(f"Server: Received from {client.getpeername()}: {message}")
+            # print(f"Server: Received from {client.getpeername()}: {message}")
             if message:
-                    if message["type"] == "join":
+                    if message["type"] == "join": ##clients joining the game
                         if message["content"]["type"] == "player":
                             if len(self.players) < NUM_PLAYERS:
                                 self.players.append(message["content"]["name"])
-                                print(f"Server: Player joined: {message['content']['name']} (Total: {len(self.players)})")
+                                print(f"{message['content']['name']} joined. {NUM_PLAYERS-len(self.players)} left")
                                 self.socket.sendMessage(client, "confirm", {"playerCount": len(self.players)})
                             else:
                                 self.socket.sendMessage(client, "decline", "")
@@ -64,7 +74,13 @@ class DominoesServer:
                             self.socket.sendMessage(client, "confirm", "")
                     
                     if message["type"] == "game":
-                        if message["content"]["num"] == self.logic.getCurrentPlayer():
+                        if message["content"]["action"] == "playerScore": ##getting the score at the end of the game
+                            self.playerHands[message["content"]["content"]["score"]] = message["content"]["content"]["name"]
+
+                        elif message["content"]["action"] == "emptyHandNotif":
+                            self.socket.broadcastMessage("gameEnd","","PLAYERS")
+
+                        elif message["content"]["num"] == self.logic.getCurrentPlayer():
                             if message["content"]["action"] == "place":
                                 recvDomino = Domino(0,0)
                                 recvDomino.reconstruct(message["content"]["content"])
@@ -72,11 +88,9 @@ class DominoesServer:
                                 if placed:
                                     self.socket.sendMessage(client,"placementSuccess","")
                                     self.logic.nextPlayer()
+                                    self.socket.broadcastMessage("gameInfo",{"board":self.logic.board.board.deconstruct()},"PLAYERS")
                                 else:
                                     self.socket.sendMessage(client,"placementFailure","")
-                                self.logic.board.board.printBoard()
-                                print(self.logic.boneyard)
-                                print(f"spectators: {self.spectatorCount}")
                             
                             elif message["content"]["action"] == "requestBoardPips":
                                 if self.logic.board.left and self.logic.board.right:
@@ -92,20 +106,22 @@ class DominoesServer:
                                     self.socket.sendMessage(client,"drawFailure","")
                         else:
                             self.socket.sendMessage(client,"notYourTurn","")
-                        
-
-                        self.socket.broadcastMessage("gameInfo",{"board":self.logic.board.board.deconstruct()},"SPECTATORS",self.spectatorCount)
+                        # self.socket.broadcastMessage("gameInfo",{"board":self.logic.board.board.deconstruct()},"SPECTATORS",self.spectatorCount)
     
     def initGame(self):
+        self.playerHands = {}
+        self.logic = ServerLogic()
         self.logic.initGame()
         for i, hand in enumerate(self.logic.getHands()):
             deconstructedHand = [domino.deconstruct() for domino in hand.getList()]
             self.socket.sendMessageToPlayer(i,"hand",deconstructedHand)
+        self.state = "game"
 
     def status(self):
         self.socket.status()
 
     def shutdown(self):
+        self.state = "close"
         self.socket.broadcastMessage("shutdown", "")
         self.socket.close()
         sys.exit()

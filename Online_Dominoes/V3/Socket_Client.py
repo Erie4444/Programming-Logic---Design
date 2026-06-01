@@ -13,7 +13,7 @@ class SocketClient():
             self.clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.clientSocket.connect((HOST, PORT))
             self.state = "connected"
-            print(f"Socket: Connected to the server. {self.clientSocket.getpeername()}")
+            # print(f"Socket: Connected to the server. {self.clientSocket.getpeername()}")
         except Exception as e:
             print(f"Socket: Connection error: {e}")
     
@@ -32,7 +32,7 @@ class SocketClient():
         try:
             if self.clientSocket and self.state == "connected":
                 self.clientSocket.sendall(packet.encode())
-                print(f"Socket: Sent: {packet}")
+                # print(f"Socket: Sent: {packet}")
             else:
                 print("Socket: Not connected to the server.")
         except Exception as e:
@@ -41,10 +41,10 @@ class SocketClient():
     def receivePacket(self):
         try:
             if self.clientSocket and self.state == "connected":
-                print("Socket: Waiting for message from server...")
+                # print("Socket: Waiting for message from server...")
                 packet = self.clientSocket.recv(1024).decode()
-                if packet:
-                    print(f"Socket: Received: {packet}")
+                # if packet:
+                    # print(f"Socket: Received: {packet}")
                 return packet
             else:
                 print("Socket: Not connected to the server.")

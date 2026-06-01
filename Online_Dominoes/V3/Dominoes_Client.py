@@ -16,36 +16,38 @@ class DominoesClient:
         self.waitingForResponse = False
         self.logic = None
         self.lastPlacedDomino = None
-        print("Client: Connecting to server, please wait...")
+        # print("Client: Connecting to server, please wait...")
         self.socket.connect()
-        print("Client: Connected to server.")
+        # print("Client: Connected to server.")
         Thread(target=self.listenToServer, daemon=True).start()
         waitUntil(lambda: self.status != "joining")
         if self.status == "player":
             self.joinPlayer()
         elif self.status == "spectator":
             self.joinSpectator()
+        print("Joined!")
         self.updateLoop()
     
     def updateLoop(self):
-        if self.status == "player":
-            waitUntil(lambda : self.logic != None)
-            while self.status != "disconnected":
+        while self.status != "disconnected":
+            if self.status == "player":
+                waitUntil(lambda : self.logic != None)
                 self.update()
-                time.sleep(0.1)  # Update every 100ms
+
+            elif self.status == "spectator":
+                pass
                 
-        elif self.status == "spectator":
-            while self.status != "disconnected":
-                time.sleep(0.1)
-        self.shutdown()
+            elif self.status == "restarting":
+                self.status = "player"
+            time.sleep(0.1)
 
     def joinPlayer(self):
-        print("Client: You are a player")
+        # print("Client: You are a player")
         input("Press Enter to join the game...")
         self.socket.sendMessage("join", {"type": "player", "name": self.name})
     
     def joinSpectator(self):
-        print("Client: You are a spectator")
+        # print("Client: You are a spectator")
         input("Press Enter to spectate the game...")
         self.socket.sendMessage("join", {"type": "spectator"})
     
@@ -68,16 +70,21 @@ class DominoesClient:
                 elif message["type"] == "connectedSpectator":
                     self.status = "spectator"
 
+                elif message["type"] == "denyConnection":
+                    print("Server at max capacity")
+                    self.shutdown()
+
                 elif message["type"] == "confirm":
                     if message["content"] != "":
-                        print(f"Client: Server confirmation, you are player {message['content']['playerCount']}")
+                        # print(f"Client: Server confirmation, you are player {message['content']['playerCount']}")
                         if not self.playerNum:
                             self.playerNum = int(message['content']['playerCount'])
                     else:
-                        print("Client: Server confirmation, you are a spectator")
+                        # print("Client: Server confirmation, you are a spectator")
+                        pass
 
-                elif message["type"] == "shutdown":
-                    print("Client: Server is shutting down. Disconnecting...")
+                elif message["type"] == "shutdown" or message["type"] == "close":
+                    # print("Client: Disconnecting...")
                     self.status = "disconnected"
                     self.socket.close()
 
@@ -85,29 +92,21 @@ class DominoesClient:
                     deconstructedHand = message["content"]
                     reconstructedHand = []
                     for domino in deconstructedHand:
-                        print(domino)
                         temp = Domino(0,0)
                         temp.reconstruct(domino)
                         reconstructedHand.append(temp)
                     hand = Hand(reconstructedHand)
-                    print("got hand",hand)
                     self.logic = ClientLogic(hand)
                     
                 elif message["type"] == "placementFailure":
                     self.waitingForResponse = False
-                    print("failed to place")
+                    print("Failed to place")
                     self.lastPlacedDomino = None
                     
                 elif message["type"] == "placementSuccess":
                     self.waitingForResponse = False
                     self.logic.hand.removeDomino(self.lastPlacedDomino)
-                    print("placement success")
-
-                elif message["type"] == "win":
-                    print("you win!")
-                    
-                elif message["type"] == "lose":
-                    print("you lose...")
+                    print("Placement success")
                 
                 elif message["type"] == "draw":
                     recvDomino = message["content"]
@@ -117,7 +116,7 @@ class DominoesClient:
                     self.waitingForResponse = False
                     
                 elif message["type"] == "drawFailure":
-                    print("nothing to draw from")
+                    print("Nothing to draw from")
                     self.waitingForResponse = False
 
                 elif message["type"] == "notYourTurn":
@@ -130,21 +129,40 @@ class DominoesClient:
                     self.waitingForResponse = False
                 
                 elif message["type"] == "noPips":
-                    print("there are no dominos placed on the board")
+                    print("There are no dominos placed on the board")
                     self.waitingForResponse = False
                 
-                ##===spectator messages===
+                elif message["type"] == "gameEnd":
+                    self.sendGameMessage("playerScore",{"name":self.name,"score":self.logic.getScore()})
+
                 elif message["type"] == "gameInfo":
                     board = message["content"]["board"]
                     for row in board:
                         print([str(i) for i in row])
+                
+
+                ##===general messages===
+                elif message["type"] == "gameResult":
+                    self.status = "waitingForResult"
+                    scores = list(message["content"].keys())
+                    scores.sort()
+                    print("==========GAME OUTCOME==========")
+                    for placement,score in enumerate(scores):
+                        print(f"{placement+1} - {message["content"][score]}")
+                    self.waitingForResponse = False
 
     
     def update(self):
         waitUntil(lambda : self.waitingForResponse == False)
         if self.status == "player":
-            print(self.logic.hand)
-            self.textGUI()
+            if self.logic.hand:
+                if len(self.logic.hand.getList()) == 0:
+                    self.waitingForResponse = True
+                    self.sendGameMessage("emptyHandNotif","")
+                    self.status = "waitingForResult"
+                print("Your hand:",self.logic.hand)
+                if not self.waitingForResponse:
+                    self.textGUI()
 
     
     def textGUI(self):
@@ -173,7 +191,7 @@ class DominoesClient:
                 self.sendGameMessage("draw","")
                 self.waitingForResponse = True
             else:
-                print("you have valid dominos")
+                print("You have playable dominos")
 
         
     def shutdown(self):
