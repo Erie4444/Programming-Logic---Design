@@ -424,6 +424,10 @@ class ServerLogic:
     def placeDomino(self,domino):
         return self.board.placeDominoWithChecks(domino)
 
+    def placeDominoDB(self,domino):
+        self.board.placeDomino(domino)
+        return True
+
     def drawDomino(self):
         if len(self.boneyard.getList()) > 0:
             return self.boneyard.drawDomino()

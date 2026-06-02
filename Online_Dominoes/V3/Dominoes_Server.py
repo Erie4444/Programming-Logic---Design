@@ -88,9 +88,18 @@ class DominoesServer:
                                 if placed:
                                     self.socket.sendMessage(client,"placementSuccess","")
                                     self.logic.nextPlayer()
-                                    self.socket.broadcastMessage("gameInfo",{"board":self.logic.board.board.deconstruct()},"PLAYERS")
+                                    self.socket.broadcastMessage("gameInfo",{"board":self.logic.board.board.deconstruct(),"origin":self.logic.board.board.origin},"PLAYERS")
                                 else:
                                     self.socket.sendMessage(client,"placementFailure","")
+
+                            elif message["content"]["action"] == "placeDB":
+                                recvDomino = Domino(0,0)
+                                recvDomino.reconstruct(message["content"]["content"])
+                                placed = self.logic.placeDominoDB(recvDomino)
+                                self.logic.board.board.printBoard()
+                                if placed:
+                                    self.logic.nextPlayer()
+                                    self.socket.broadcastMessage("gameInfo",{"board":self.logic.board.board.deconstruct(),"origin":self.logic.board.board.origin},"PLAYERS")
                             
                             elif message["content"]["action"] == "requestBoardPips":
                                 if self.logic.board.left and self.logic.board.right:
@@ -115,6 +124,7 @@ class DominoesServer:
         for i, hand in enumerate(self.logic.getHands()):
             deconstructedHand = [domino.deconstruct() for domino in hand.getList()]
             self.socket.sendMessageToPlayer(i,"hand",deconstructedHand)
+        self.socket.broadcastMessage("gameInfo",{"board":self.logic.board.board.deconstruct(),"origin":self.logic.board.board.origin},"PLAYERS")
         self.state = "game"
 
     def status(self):
