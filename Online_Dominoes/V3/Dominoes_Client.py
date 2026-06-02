@@ -19,8 +19,11 @@ class DominoesClient:
         self.waitingForResponse = False
         self.logic = None
         self.board = None
+        self.boardOrigin = None
         self.viewingOrigin = (0,0)
         self.UIBoard = pygame.sprite.GroupSingle()
+        self.UIDashboard = pygame.sprite.GroupSingle()
+        self.selectedDomino = pygame.sprite.GroupSingle()
         self.lastPlacedDomino = None
 
         self.socket.connect()
@@ -35,48 +38,67 @@ class DominoesClient:
         self.updateLoop()
     
     def initScreen(self):
-        self.screen  = pygame.display.set_mode((SCREEN_DIMENSIONS[0] * TILE_DIMENSIONS[0], SCREEN_DIMENSIONS[1] * TILE_DIMENSIONS[1]))
-        pygame.display.set_caption("Dominoes")
+        self.screen  = pygame.display.set_mode((SCREEN_DIMENSIONS[0] * TILE_DIMENSIONS[0], SCREEN_DIMENSIONS[1] * TILE_DIMENSIONS[1]+DASHBOARD_DIMENSIONS))
         self.clock = pygame.time.Clock() 
 
     def draw(self):
         self.screen.fill('#000000')
         self.UIBoard.draw(self.screen)
+        self.UIDashboard.draw(self.screen)
+        self.selectedDomino.draw(self.screen)
     
+    def updateDisplay(self):
+        if self.board and self.boardOrigin:
+            self.UIBoard.update(self.board,self.boardOrigin)
+            self.UIDashboard.update()
+        self.draw()
+        pygame.display.update()
+
     def updateLoop(self):
         while self.status != "disconnected":
             if self.status == "player":
                 waitUntil(lambda : self.logic != None)
                 for event in pygame.event.get():
                     if event.type == pygame.MOUSEBUTTONDOWN:
+                        if self.selectedDomino.sprite:
+                            if self.UIDashboard.sprite.isHovering(event.pos):
+                                self.UIDashboard.sprite.dominoes.add(self.selectedDomino.sprite)
+                                self.selectedDomino.empty()
+                            else:
+                                self.selectedDomino.empty()
+                        else:
+                            self.selectedDomino.add(self.UIDashboard.sprite.getHovering(event.pos))
+                            if self.selectedDomino.sprite:
+                                self.selectedDomino.sprite.setAbsPos(event.pos)
+                                self.UIDashboard.sprite.removeDomino(self.selectedDomino.sprite)
+                    if event.type == pygame.MOUSEMOTION:
+                        if self.selectedDomino.sprite:
+                            self.selectedDomino.sprite.setAbsPos(event.pos)
                         # testDomino = Domino(1,2)
                         # placeCell = absCoordToCellCoord(pygame.mouse.get_pos())
-                        # print(placeCell)
                         # testDomino.placeLeft(placeCell[0],placeCell[1])
                         # self.sendGameMessage("placeDB",testDomino)
-                        pass
                     if event.type == pygame.QUIT:
                         self.shutdown()
-                self.update()
+                self.checkWin()
 
             elif self.status == "spectator":
-                pass
-
-            self.UIBoard.sprite.update(self.board,self.boardOrigin)
-            
-            self.draw()
-            pygame.display.update()
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        self.shutdown()
+            self.updateDisplay()
             self.clock.tick(60)
-            time.sleep(0.1)
 
     def joinPlayer(self):
         # print("Client: You are a player")
         # input("Press Enter to join the game...")
+        pygame.display.set_caption("Dominoes: Player")
         self.socket.sendMessage("join", {"type": "player", "name": self.name})
     
     def joinSpectator(self):
         # print("Client: You are a spectator")
-        input("Press Enter to spectate the game...")
+        # input("Press Enter to spectate the game...")
+        pygame.display.set_caption("Dominoes: Spectator")
         self.socket.sendMessage("join", {"type": "spectator"})
     
     def sendGameMessage(self,action,content):
@@ -110,6 +132,8 @@ class DominoesClient:
                     else:
                         # print("Client: Server confirmation, you are a spectator")
                         pass
+                    self.UIBoard.add(UIBoard())
+                    self.UIDashboard.add(UIDashboard())
 
                 elif message["type"] == "shutdown" or message["type"] == "close":
                     # print("Client: Disconnecting...")
@@ -125,7 +149,7 @@ class DominoesClient:
                         reconstructedHand.append(temp)
                     hand = Hand(reconstructedHand)
                     self.logic = ClientLogic(hand)
-                    self.UIBoard.add(UIBoard())
+                    self.UIDashboard.sprite.setDominoes(reconstructedHand)
                     
                 elif message["type"] == "placementFailure":
                     self.waitingForResponse = False
@@ -182,7 +206,7 @@ class DominoesClient:
                     self.waitingForResponse = False
 
     
-    def update(self):
+    def checkWin(self):
         waitUntil(lambda : self.waitingForResponse == False)
         if self.status == "player":
             if self.logic.hand:
@@ -190,10 +214,6 @@ class DominoesClient:
                     self.waitingForResponse = True
                     self.sendGameMessage("emptyHandNotif","")
                     self.status = "waitingForResult"
-                print("Your hand:",self.logic.hand)
-                if not self.waitingForResponse:
-                    # self.textGUI()
-                    pass
 
     
     def textGUI(self):
@@ -226,6 +246,7 @@ class DominoesClient:
 
         
     def shutdown(self):
+        self.socket.sendMessage("disconnectClient","")
         self.status = "disconnected"
         self.socket.state = "disconnected"
         self.socket.close()

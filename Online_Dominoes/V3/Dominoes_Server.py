@@ -73,6 +73,9 @@ class DominoesServer:
                             self.spectatorCount += 1
                             self.socket.sendMessage(client, "confirm", "")
                     
+                    if message["type"] == "disconnectClient":
+                        self.shutdown()
+                    
                     if message["type"] == "game":
                         if message["content"]["action"] == "playerScore": ##getting the score at the end of the game
                             self.playerHands[message["content"]["content"]["score"]] = message["content"]["content"]["name"]
@@ -88,7 +91,7 @@ class DominoesServer:
                                 if placed:
                                     self.socket.sendMessage(client,"placementSuccess","")
                                     self.logic.nextPlayer()
-                                    self.socket.broadcastMessage("gameInfo",{"board":self.logic.board.board.deconstruct(),"origin":self.logic.board.board.origin},"PLAYERS")
+                                    self.socket.broadcastMessage("gameInfo",{"board":self.logic.board.board.deconstruct(),"origin":self.logic.board.board.origin})
                                 else:
                                     self.socket.sendMessage(client,"placementFailure","")
 
@@ -99,7 +102,7 @@ class DominoesServer:
                                 self.logic.board.board.printBoard()
                                 if placed:
                                     self.logic.nextPlayer()
-                                    self.socket.broadcastMessage("gameInfo",{"board":self.logic.board.board.deconstruct(),"origin":self.logic.board.board.origin},"PLAYERS")
+                                    self.socket.broadcastMessage("gameInfo",{"board":self.logic.board.board.deconstruct(),"origin":self.logic.board.board.origin})
                             
                             elif message["content"]["action"] == "requestBoardPips":
                                 if self.logic.board.left and self.logic.board.right:
