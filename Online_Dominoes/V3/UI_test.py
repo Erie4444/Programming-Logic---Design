@@ -1,3 +1,5 @@
+"""=====NOT USED======"""
+
 from Dominoes_UI import *
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_DIMENSIONS[0] * TILE_DIMENSIONS[0], SCREEN_DIMENSIONS[1] * TILE_DIMENSIONS[1]+DASHBOARD_DIMENSIONS))
