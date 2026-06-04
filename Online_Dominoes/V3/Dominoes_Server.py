@@ -34,8 +34,7 @@ class DominoesServer:
                 self.socket.broadcastMessage("gameResult",self.playerHands)
                 self.state = "end"
             elif self.state == "end":
-                input("Press Enter to close the server...")
-                self.shutdown()
+                print("quit on one of the clients to close the game")
             time.sleep(0.1)
 
     def waitForPlayers(self):
@@ -88,7 +87,6 @@ class DominoesServer:
                             if message["content"]["action"] == "place":
                                 recvDomino = Domino(0,0)
                                 recvDomino.reconstruct(message["content"]["content"])
-                                print(f"recieved domino {recvDomino},{[recvDomino.left.x,recvDomino.left.y]},{[recvDomino.right.x,recvDomino.right.y]}")
                                 placed = self.logic.placeDomino(recvDomino)
                                 if placed:
                                     self.socket.sendMessage(client,"placementSuccess","")

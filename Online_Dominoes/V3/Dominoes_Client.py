@@ -22,6 +22,7 @@ class DominoesClient:
         self.boardOrigin = None
         self.lastPlacedDomino = None
         self.waitingForPlayers = True
+        self.canDraw = True
         self.viewingOrigin = (0,0)
         self.UIBoard = pygame.sprite.GroupSingle()
         self.UIDashboard = pygame.sprite.GroupSingle()
@@ -30,6 +31,7 @@ class DominoesClient:
         self.waitingScreen = pygame.sprite.GroupSingle()
         self.drawButton = pygame.sprite.GroupSingle()
         self.turnText = pygame.sprite.GroupSingle()
+        self.alert = pygame.sprite.GroupSingle()
     
     def startApplication(self):
         self.name = input("Enter your name: ")
@@ -54,7 +56,7 @@ class DominoesClient:
         if self.status == "spectator":
             self.waitingScreen.empty()
             self.UIBoard.add(UIBoard())
-            self.turnText.add(UIText("Spectating",TURN_TEXT_POSITION,15))
+            self.turnText.add(UIText("Spectating",TURN_TEXT_POSITION,(100,20),15))
 
     def initScreen(self):
         self.screen  = pygame.display.set_mode((SCREEN_DIMENSIONS[0] * TILE_DIMENSIONS[0], SCREEN_DIMENSIONS[1] * TILE_DIMENSIONS[1]+DASHBOARD_DIMENSIONS))
@@ -69,8 +71,10 @@ class DominoesClient:
         self.turnText.draw(self.screen)
         self.titleScreen.draw(self.screen)
         self.waitingScreen.draw(self.screen)
+        self.alert.draw(self.screen)
     
     def updateDisplay(self):
+        self.alert.update()
         self.selectedDomino.update()
         if self.board and self.boardOrigin:
             self.UIBoard.update(self.board,self.boardOrigin)
@@ -148,26 +152,23 @@ class DominoesClient:
                         self.UIDashboard.sprite.dominoes.add(self.selectedDomino.sprite)
                         self.selectedDomino.empty()
                     else:
-                        print(self.selectedDomino.sprite.getPips())
                         self.lastPlacedDomino = self.logic.getLogicDomino(self.selectedDomino.sprite.getPips())
                         self.lastPlacedDomino.angle = self.selectedDomino.sprite.angle
                         cell = getLeftPipDominoCell(event.pos[0],event.pos[1],self.lastPlacedDomino)
                         cell = (cell[0]-self.UIBoard.sprite.origin[0],cell[1]-self.UIBoard.sprite.origin[1])
-                        print(f"cell: {cell}")
                         self.lastPlacedDomino.placeLeft(cell[0],cell[1])
                         self.sendGameMessage("place",self.lastPlacedDomino.deconstruct())
                 
                 elif self.drawButton.sprite.isHovering(event.pos):
-                    print("clicked draw")
+                    self.canDraw = True
                     self.sendGameMessage("requestBoardPips","")
                     self.waitingForResponse = True
                     waitUntil(lambda:self.waitingForResponse == False or self.running == False)
-                    if not self.logic.hand.hasDominoWithPip(self.boardLeft) and not self.logic.hand.hasDominoWithPip(self.boardRight):
+                    if not self.logic.hand.hasDominoWithPip(self.boardLeft) and not self.logic.hand.hasDominoWithPip(self.boardRight) and self.canDraw:
                         self.sendGameMessage("draw","")
                         self.waitingForResponse = True
                     else:
-                        print("You have playable dominos")
-                        print(f"hand: {self.logic.hand}")
+                        self.alert.add(UIAlert("You Have Valid Dominos",(500,100),30,60))
                 else:
                     self.selectedDomino.add(self.UIDashboard.sprite.getHovering(event.pos))
                     if self.selectedDomino.sprite:
@@ -186,13 +187,13 @@ class DominoesClient:
                     if event.key == pygame.K_x:
                         self.selectedDomino.sprite.rotateClockwise()
                     
-                if event.key == pygame.K_UP:
-                    self.UIBoard.sprite.scrollUp()
                 if event.key == pygame.K_DOWN:
+                    self.UIBoard.sprite.scrollUp()
+                if event.key == pygame.K_UP:
                     self.UIBoard.sprite.scrollDown()
-                if event.key == pygame.K_LEFT:
-                    self.UIBoard.sprite.scrollLeft()
                 if event.key == pygame.K_RIGHT:
+                    self.UIBoard.sprite.scrollLeft()
+                if event.key == pygame.K_LEFT:
                     self.UIBoard.sprite.scrollRight()
 
         if self.logic:
@@ -202,11 +203,20 @@ class DominoesClient:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.shutdown()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_DOWN:
+                    self.UIBoard.sprite.scrollUp()
+                if event.key == pygame.K_UP:
+                    self.UIBoard.sprite.scrollDown()
+                if event.key == pygame.K_RIGHT:
+                    self.UIBoard.sprite.scrollLeft()
+                if event.key == pygame.K_LEFT:
+                    self.UIBoard.sprite.scrollRight()
 
     def joinPlayer(self):
         # print("Client: You are a player")
         # input("Press Enter to join the game...")
-        pygame.display.set_caption("Dominoes: Player")
+        pygame.display.set_caption(f"Dominoes: {self.name}")
         self.socket.sendMessage("join", {"type": "player", "name": self.name})
     
     def joinSpectator(self):
@@ -246,7 +256,7 @@ class DominoesClient:
                         self.UIBoard.add(UIBoard())
                         self.UIDashboard.add(UIDashboard())
                         self.drawButton.add(UIButton("Draw",DRAW_BUTTON_COORDINATES,DRAW_BUTTON_DIMENSIONS,DRAW_BUTTON_COLOR,15))
-                        self.turnText.add(UIText("",TURN_TEXT_POSITION,15))
+                        self.turnText.add(UIText("",TURN_TEXT_POSITION,(100,20),15))
                     else:
                         # print("Client: Server confirmation, you are a spectator")
                         pass
@@ -273,14 +283,12 @@ class DominoesClient:
                     
                 elif message["type"] == "placementFailure":
                     self.waitingForResponse = False
-                    print("Failed to place")
                     self.lastPlacedDomino = None
                     
                 elif message["type"] == "placementSuccess":
                     self.waitingForResponse = False
                     self.logic.hand.removeDomino(self.lastPlacedDomino)
                     self.selectedDomino.empty()
-                    print("Placement success")
                 
                 elif message["type"] == "draw":
                     recvDomino = message["content"]
@@ -292,10 +300,11 @@ class DominoesClient:
                     
                 elif message["type"] == "drawFailure":
                     print("Nothing to draw from")
+                    self.alert.add(UIAlert("Deck Empty",(500,100),30,60))
                     self.waitingForResponse = False
 
                 elif message["type"] == "notYourTurn":
-                    print("It is not your turn")
+                    self.alert.add(UIAlert("Not Your Turn",(500,100),30,60))
                     self.waitingForResponse = False
                 
                 elif message["type"] == "pips":
@@ -304,7 +313,8 @@ class DominoesClient:
                     self.waitingForResponse = False
                 
                 elif message["type"] == "noPips":
-                    print("There are no dominos placed on the board")
+                    self.canDraw = False
+                    self.alert.add(UIAlert("You Can Play a Domino",(500,100),30,60))
                     self.waitingForResponse = False
                 
                 elif message["type"] == "gameEnd":
@@ -314,7 +324,6 @@ class DominoesClient:
                     self.board = message["content"]["board"]
                     self.boardOrigin = message["content"]["origin"]
                     if self.playerNum == message["content"]["currentPlayer"]:
-                        print(self.turnText.sprite)
                         self.turnText.sprite.changeText("Your Turn")
                     else:
                         self.turnText.sprite.changeText("Not Your Turn")

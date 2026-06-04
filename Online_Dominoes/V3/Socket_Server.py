@@ -2,6 +2,7 @@ import socket
 from config import *
 import json
 from util import *
+import struct
 
 class SocketServer:
     def __init__(self):
@@ -29,24 +30,43 @@ class SocketServer:
         except Exception as e:
             pass
 
-    def sendPacket(self,client, packet):
+    # def sendPacket(self,client, packet):
+    #     try:
+    #         client.sendall(packet.encode())
+    #         # print(f"Socket: Sent to {client.getpeername()}: {packet}")
+    #     except Exception as e:
+    #         print(f"Socket: Error sending to {client.getpeername()}: {e}")
+
+    def sendPacket(self, client, packet):
         try:
-            client.sendall(packet.encode())
-            # print(f"Socket: Sent to {client.getpeername()}: {packet}")
+            data = packet.encode()
+            length = struct.pack("!I", len(data))  # 4-byte header
+            client.sendall(length + data)
         except Exception as e:
             print(f"Socket: Error sending to {client.getpeername()}: {e}")
+
+    def recv_exact(self, client, n):
+        data = b""
+        while len(data) < n:
+            chunk = client.recv(n - len(data))
+            if not chunk:
+                return None
+            data += chunk
+        return data
     
-    def receivePacket(self, client):
+    def receiveMessage(self, client):
         try:
-            packet = client.recv(1024).decode()
-            return packet
+            header = self.recv_exact(client, 4)
+            if not header:
+                return None
+            length = struct.unpack("!I", header)[0]
+            payload = self.recv_exact(client, length)
+            if not payload:
+                return None
+            return jsonLoad(payload.decode())
         except Exception as e:
             print(f"Socket: Error receiving from {client.getpeername()}: {e}")
             return None
-    
-    def receiveMessage(self, client):
-        packet = self.receivePacket(client)
-        return jsonLoad(packet)
     
     def broadcastPacket(self, packet, clientType=None, amount = None):
         if clientType:

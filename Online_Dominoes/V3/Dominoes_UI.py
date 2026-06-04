@@ -214,11 +214,12 @@ class UIButton(UIElement):
         return self.rect.collidepoint(position)
 
 class UIText(UIElement):
-    def __init__(self,text,position,fontSize):
+    def __init__(self,text,position,dimensions,fontSize):
         super().__init__()
         self.position = position
-        self.image = pygame.Surface((100,20),pygame.SRCALPHA)
-        self.rect = self.image.get_rect(center = (self.image.width/2,self.image.height/2))
+        self.image = pygame.Surface(dimensions)
+        self.image.fill("#000000")
+        self.rect = self.image.get_rect(center = self.position)
         self.font = pygame.font.SysFont('Arial',fontSize)
         self.text = self.font.render(text,True,'#FFFFFF')
         self.textRect = self.text.get_rect(center = (self.rect.width/2,self.rect.height/2))
@@ -229,6 +230,17 @@ class UIText(UIElement):
         self.textRect = self.text.get_rect(center = (self.rect.width/2,self.rect.height/2))
         self.image.fill('#000000')
         self.image.blit(self.text,self.textRect)
+
+class UIAlert(UIText):
+    def __init__(self,alert,dimensions,fontSize,time):
+        super().__init__(alert,(SCREEN_DIMENSIONS[0]*TILE_DIMENSIONS[0]/2,SCREEN_DIMENSIONS[1]*TILE_DIMENSIONS[1]/2),dimensions,fontSize)
+        self.time = time
+    
+    def update(self):
+        if self.time <= 0:
+            self.kill()
+        else:
+            self.time-=1
 
 class UITitleScreen(UIElement):
     def __init__(self):
