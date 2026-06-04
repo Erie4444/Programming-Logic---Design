@@ -46,7 +46,7 @@ Objective: Get rid of all your dominos (cards)
 ##### HOW TO USE THE INTERFACE 
  - Click a domino to select or place it either on the board, or in your hand
  - Use Z or X to turn the domino 90 degrees
- - Click the Draw button if you need to draw a card
+ - Click the Draw button if you need to draw a card (it is a little slow)
  - Use the arrow keys to pan across the board
 
 #### Ending the game
