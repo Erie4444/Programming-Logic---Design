@@ -12,6 +12,7 @@ class UIElement(pygame.sprite.Sprite):
 class UIPip(UIElement):
     def __init__(self, pip, position=(0, 0)):
         super().__init__(self.createPipImage(pip), position)
+        self.pip = pip
         self.position = position
     
     def createPipImage(self, pip):
@@ -72,12 +73,19 @@ class UIDomino(UIElement):
     def rotateCounterclockwise(self):
         self.angle += 90
 
+    def resetDirection(self):
+        self.angle = 0
+        self.update()
+
     def setAbsPos(self,position):
         self.position = position
         self.rect.center = position
     
     def isHovering(self,position):
         return self.rect.collidepoint(position)
+
+    def getPips(self):
+        return [self.pips.sprites()[0].pip,self.pips.sprites()[1].pip]
 
     def update(self):
         if self.angle < 0:
@@ -102,7 +110,7 @@ class UIDashboard(UIElement):
         self.drawDominoes()
     
     def drawDashboard(self):
-        self.image.fill('#333333')
+        self.image.fill(DASHBOARD_COLOR)
         pygame.draw.rect(self.image, '#FFFFFF', self.image.get_rect(), 2)
     
     def drawDominoes(self):
@@ -148,8 +156,6 @@ class UIDashboard(UIElement):
     def update(self):
         self.draw()
     
-    
-
 class UIBoard(UIElement):
     def __init__(self):
         super().__init__()
@@ -159,21 +165,104 @@ class UIBoard(UIElement):
         self.origin = (0,0)
     
     def updatePips(self,boardMatrix,origin):
+        self.pips.empty()
         boardOrigin = origin
         for y,row in enumerate(boardMatrix):
             for x,cell in enumerate(row):
                 if cell != BOARD_EMPTY:
                     pip = UIPip(cell)
-                    boardCoords = [x-boardOrigin[0],y-boardOrigin[1]]
+                    boardCoords = [x-(boardOrigin[0]-self.origin[0]),y-(boardOrigin[1]-self.origin[1])]
                     pip.setAbsPos((cellCoordToAbsCoord(boardCoords)))
                     self.pips.add(pip)
+    
+    def clear(self):
+        self.image.fill('#000000')
+    
+    def scrollLeft(self):
+        self.origin = (self.origin[0]-1,self.origin[1])
+
+    def scrollRight(self):
+        self.origin = (self.origin[0]+1,self.origin[1])
+
+    def scrollUp(self):
+        self.origin = (self.origin[0],self.origin[1]-1)
+
+    def scrollDown(self):
+        self.origin = (self.origin[0],self.origin[1]+1)
 
     def updateBoard(self):
         self.pips.draw(self.image)
     
     def update(self,boardMatrix,origin):
+        self.clear()
         self.updatePips(boardMatrix,origin)
         self.updateBoard()
+
+class UIButton(UIElement):
+    def __init__(self, text, position, dimensions,color,fontSize = 30):
+        super().__init__()
+        self.image = pygame.Surface(dimensions)
+        self.rect = self.image.get_rect(center=position)
+        self.font = pygame.font.SysFont('Arial', fontSize)
+        self.text = self.font.render(text, True, '#FFFFFF')
+        self.image.fill(color)
+        pygame.draw.rect(self.image, '#FFFFFF', self.image.get_rect(), 2)
+        textRect = self.text.get_rect(center=(self.rect.width/2,self.rect.height/2))
+        self.image.blit(self.text,textRect)
+    
+    def isHovering(self,position):
+        return self.rect.collidepoint(position)
+
+class UIText(UIElement):
+    def __init__(self,text,position,fontSize):
+        super().__init__()
+        self.position = position
+        self.image = pygame.Surface((100,20),pygame.SRCALPHA)
+        self.rect = self.image.get_rect(center = (self.image.width/2,self.image.height/2))
+        self.font = pygame.font.SysFont('Arial',fontSize)
+        self.text = self.font.render(text,True,'#FFFFFF')
+        self.textRect = self.text.get_rect(center = (self.rect.width/2,self.rect.height/2))
+        self.image.blit(self.text,self.textRect)
+    
+    def changeText(self,text):
+        self.text = self.font.render(text,True,'#FFFFFF')
+        self.textRect = self.text.get_rect(center = (self.rect.width/2,self.rect.height/2))
+        self.image.fill('#000000')
+        self.image.blit(self.text,self.textRect)
+
+class UITitleScreen(UIElement):
+    def __init__(self):
+        super().__init__()
+        self.image = pygame.Surface((SCREEN_DIMENSIONS[0] * TILE_DIMENSIONS[0], SCREEN_DIMENSIONS[1] * TILE_DIMENSIONS[1]+DASHBOARD_DIMENSIONS))
+        self.rect = self.image.get_rect()
+        self.font = pygame.font.SysFont('Arial', 50)
+        self.titleText = self.font.render('Dominoes', True, '#FFFFFF')
+        self.startButton = UIButton('Start Game', TITLE_BUTTON_COORDS, TITLE_BUTTON_DIMENSIONS, TITLE_BUTTON_COLOR)
+        self.instructionButton = UIButton('Instructions',(TITLE_BUTTON_COORDS[0],TITLE_BUTTON_COORDS[1]+TITLE_BUTTON_OFFSET),TITLE_BUTTON_DIMENSIONS,TITLE_BUTTON_COLOR)
+
+        self.image.fill('#000000')
+        titleRect = self.titleText.get_rect(center=TITLE_COORDS)
+        self.image.blit(self.titleText,titleRect)
+        self.image.blit(self.startButton.image,self.startButton.rect)
+        self.image.blit(self.instructionButton.image,self.instructionButton.rect)
+    
+    def isHoveringStart(self,position):
+        return self.startButton.isHovering(position)
+
+    def isHoveringInstruction(self,position):
+        return self.instructionButton.isHovering(position)
+
+class UIWaitingScreen(UIElement):
+    def __init__(self,text,fontSize = 30):
+        super().__init__()
+        self.image = pygame.Surface((SCREEN_DIMENSIONS[0] * TILE_DIMENSIONS[0], SCREEN_DIMENSIONS[1] * TILE_DIMENSIONS[1]+DASHBOARD_DIMENSIONS))
+        self.rect = self.image.get_rect()
+        self.font = pygame.font.SysFont('Arial', fontSize)
+        self.waitingText = self.font.render(text, True, '#FFFFFF')
+        self.image.fill('#000000')
+        waitingRect = self.waitingText.get_rect(center=((SCREEN_DIMENSIONS[0]*TILE_DIMENSIONS[0])/2,(SCREEN_DIMENSIONS[1]*TILE_DIMENSIONS[1])/2))
+        self.image.blit(self.waitingText,waitingRect)    
+    
 
 test = UIDashboard()
 test.arrangeDominoes()

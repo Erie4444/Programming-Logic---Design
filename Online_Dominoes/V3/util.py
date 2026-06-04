@@ -37,3 +37,8 @@ def findDuplicates(iter1,iter2):
         if item in iter2:
             dupes.append(item)
     return dupes
+
+def getLeftPipDominoCell(absx,absy,domino):
+    xDiff = math.cos(math.radians(domino.angle))*-1*TILE_DIMENSIONS[0]/2
+    yDiff = math.sin(math.radians(domino.angle))*TILE_DIMENSIONS[1]/2 ##no *-1 cause 0 is up
+    return absCoordToCellCoord((absx+xDiff,absy+yDiff))

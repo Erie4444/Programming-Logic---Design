@@ -41,6 +41,7 @@ class DominoesServer:
     def waitForPlayers(self):
         print("Waiting for players...")
         waitUntil(lambda: len(self.players) >= NUM_PLAYERS)
+        self.socket.broadcastMessage("gameStart","")
         print("Starting Game")
         self.state = "initGame"
     
@@ -87,11 +88,12 @@ class DominoesServer:
                             if message["content"]["action"] == "place":
                                 recvDomino = Domino(0,0)
                                 recvDomino.reconstruct(message["content"]["content"])
+                                print(f"recieved domino {recvDomino},{[recvDomino.left.x,recvDomino.left.y]},{[recvDomino.right.x,recvDomino.right.y]}")
                                 placed = self.logic.placeDomino(recvDomino)
                                 if placed:
                                     self.socket.sendMessage(client,"placementSuccess","")
                                     self.logic.nextPlayer()
-                                    self.socket.broadcastMessage("gameInfo",{"board":self.logic.board.board.deconstruct(),"origin":self.logic.board.board.origin})
+                                    self.socket.broadcastMessage("gameInfo",{"board":self.logic.board.board.deconstruct(),"origin":self.logic.board.board.origin,"currentPlayer":self.logic.currentPlayer})
                                 else:
                                     self.socket.sendMessage(client,"placementFailure","")
 
@@ -127,7 +129,7 @@ class DominoesServer:
         for i, hand in enumerate(self.logic.getHands()):
             deconstructedHand = [domino.deconstruct() for domino in hand.getList()]
             self.socket.sendMessageToPlayer(i,"hand",deconstructedHand)
-        self.socket.broadcastMessage("gameInfo",{"board":self.logic.board.board.deconstruct(),"origin":self.logic.board.board.origin},"PLAYERS")
+        self.socket.broadcastMessage("gameInfo",{"board":self.logic.board.board.deconstruct(),"origin":self.logic.board.board.origin,"currentPlayer":self.logic.currentPlayer},"PLAYERS",)
         self.state = "game"
 
     def status(self):

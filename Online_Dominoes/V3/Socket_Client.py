@@ -50,7 +50,8 @@ class SocketClient():
                 print("Socket: Not connected to the server.")
                 return None
         except Exception as e:
-            print(f"Socket: Receive error: {e}")
+            # print(f"Socket: Receive error: {e}")
+            pass
             return None
 
     def close(self):

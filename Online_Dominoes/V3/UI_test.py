@@ -8,6 +8,7 @@ running = True
 board = pygame.sprite.GroupSingle(UIBoard())
 dashboard = pygame.sprite.GroupSingle(UIDashboard())
 selectedDomino = pygame.sprite.GroupSingle()
+title = pygame.sprite.GroupSingle(UITitleScreen())
 
 while running:
     screen.fill('#000000')
@@ -48,6 +49,7 @@ while running:
         board.draw(screen)
         dashboard.draw(screen)
         selectedDomino.draw(screen)
+        title.draw(screen)
         # print(dashboard.sprite.dominoes.sprites())
     
     pygame.display.update()

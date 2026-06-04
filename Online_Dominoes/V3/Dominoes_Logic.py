@@ -103,23 +103,26 @@ class DominoBoard:
             if self.canPlaceDominoPositionally(domino):
                 if self.canPlacePip(domino):
                     if self.findSidePlaced(domino) == self.left:
-                        if domino.left.pips == self.left.pips:
+                        if domino.left.getCoord() in self.getOrthogonalCoords(self.left.x,self.left.y) and domino.left.pips == self.left.pips:
                             self.left = domino.right
-                        elif domino.right.pips == self.left.pips:
+                        elif domino.right.getCoord() in self.getOrthogonalCoords(self.left.x,self.left.y) and domino.right.pips == self.left.pips:
                             self.left = domino.left
 
                     if self.findSidePlaced(domino) == self.right:
-                        if domino.left.pips == self.right.pips:
+                        if domino.left.getCoord() in self.getOrthogonalCoords(self.right.x,self.right.y) and domino.left.pips == self.right.pips:
                             self.right = domino.right
-                        elif domino.right.pips == self.right.pips:
+                        elif domino.right.getCoord() in self.getOrthogonalCoords(self.right.x,self.right.y) and domino.right.pips == self.right.pips:
                             self.right = domino.left
                     self.placeDomino(domino)
+                    print(f"board left & right: {self.left.pips}: {self.left.getCoord()} {self.right.pips}: {self.right.getCoord()}")
                     return True
 
                 else:
                     print("pip failed")
             else:
                 print("pos failed")
+        if self.right and self.left:
+            print(f"board left & right: {self.left.pips}: {self.left.getCoord()} {self.right.pips}: {self.right.getCoord()}")
         return False
 
 
@@ -265,6 +268,9 @@ class AdaptiveBoard:
     def getOrigin(self):
         return self.origin
 
+    def isEmpty(self):
+        return all(item == '' for item in self.board)
+
     def getBoard(self):
         return self.board
 
@@ -375,6 +381,12 @@ class Hand(DominoList):
             if pips in domino.getDomino():
                 return True
         return False
+
+    def getDominoWithPips(self,pips):
+        for domino in self.dominoes:
+            if pips[0] == domino.getDomino()[0] and pips[1] == domino.getDomino()[1]:
+                return domino
+        return False  
     
 class Boneyard(DominoList):
     def __init__(self):
@@ -438,6 +450,9 @@ class ClientLogic:
     
     def playDomino(self,domino):
         return self.hand.playDomino(domino)
+
+    def getLogicDomino(self,pips):
+        return self.hand.getDominoWithPips(pips)
 
     def getScore(self):
         score = 0
